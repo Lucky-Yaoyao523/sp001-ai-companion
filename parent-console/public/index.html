@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>小胖 · 家长查看</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brandmark">✦</span><span>小胖 <small>家长查看</small></span></div>
+      <div class="header-right"><span class="prototype">家庭 Wi-Fi 自动记录</span><button id="logout" class="link hidden">退出</button></div>
+    </header>
+    <main>
+      <section id="login" class="login-card">
+        <div class="eyebrow">仅供家长</div>
+        <h1>看看小胖今天陪孩子做了什么</h1>
+        <p>输入家长访问码。玩具会保留对话记录；这台电脑打开网页服务后，会从同一家庭 Wi-Fi 自动补齐。</p>
+        <form id="login-form"><label for="code">本次启动访问码</label><div class="login-line"><input id="code" type="password" autocomplete="off" required><button class="primary">进入</button></div></form>
+        <p id="login-error" class="error" role="alert"></p>
+      </section>
+      <div id="dashboard" class="hidden">
+        <section class="hero">
+          <div><div class="eyebrow">每日陪伴记录</div><h1>了解每一天，安心陪伴。</h1><p>从使用时间到每轮是否完成，都可以在这里查看。</p></div>
+          <div class="hero-status"><span class="dot"></span><div><span id="battery-status" class="battery-status">电量：暂未获取</span><strong id="sync-status">正在连接玩具记录</strong><small id="sync-detail">正在通过家庭 Wi-Fi 读取；网页设置目前不会在玩具上生效</small></div></div>
+        </section>
+        <nav class="tabs" aria-label="页面"><button class="tab active" data-tab="overview">使用日报</button><button class="tab" data-tab="settings">时间与远程开关</button></nav>
+        <section id="overview" class="page">
+          <div class="section-title"><div><div class="eyebrow">TODAY & HISTORY</div><h2>使用日报</h2></div><div class="date-actions"><button id="previous-day" class="small-button" aria-label="前一天">‹</button><input id="date" type="date" aria-label="选择日期"><button id="next-day" class="small-button" aria-label="后一天">›</button><button id="today" class="small-button">今天</button><button id="refresh" class="small-button">刷新</button><button id="generate-summary" class="primary small-button">一键总结</button><a id="export" class="small-button" href="#" title="下载可直接阅读的聊天文本">导出当天</a></div></div>
+          <div id="stats" class="stat-grid"></div>
+          <details id="summary-panel" class="panel daily-summary"><summary>家长一键总结</summary>
+            <p class="subtext">仅点击时，将所选日期已同步的聊天文字交给 OpenAI 高级模型分析。新记录同步后可重新生成；结果供家长参考。</p>
+            <button id="generate-summary-inline" type="button" class="primary">生成当天总结</button>
+            <p id="summary-status" role="status" class="subtext"></p><div id="summary-content"></div>
+          </details>
+          <section class="panel chat-panel" id="chat-panel">
+            <div class="panel-head"><button id="chat-toggle" class="chat-toggle" aria-expanded="true" aria-controls="chat-content"><span class="chat-chevron" aria-hidden="true">▾</span> 聊天记录</button><span id="chat-count" class="subtext"></span></div>
+            <div id="chat-content" class="chat-content">
+              <div class="chat-toolbar"><input id="search" type="search" placeholder="搜索孩子的话或玩具的回答" aria-label="搜索聊天记录"><button id="clear-search" class="link hidden">清除搜索</button><button id="latest" class="small-button">回到最新 ↓</button></div>
+              <div id="conversations" class="conversations" role="region" aria-label="聊天内容，可上下滚动" tabindex="0"></div>
+            </div>
+          </section>
+          <details class="panel overview-details"><summary>查看当天概览与执行情况</summary><div class="two-col">
+            <section><div id="topics" class="topics"></div><div id="empty-demo" class="empty"><strong>这一天还没有玩具记录</strong><p>有新对话时会自动出现。</p><button id="demo" class="secondary">载入演示记录</button></div></section>
+            <section><div id="execution" class="execution"></div></section>
+          </div></details>
+          <details class="panel"><summary>查看同步状态</summary><p id="sync-diagnostics" class="subtext">等待同步检查</p></details>
+          <details class="panel timeline-panel"><summary>查看运行记录与结束原因</summary><p><a id="export-raw" class="link" href="#">下载原始数据</a></p><div id="timeline" class="timeline"></div></details>
+          <div class="bottom-actions"><button id="delete-day" class="danger-link">删除所选日期记录</button><span>不保存原始录音；逐字文字可在设置里关闭。</span></div>
+        </section>
+        <section id="settings" class="page hidden">
+          <div class="section-title"><div><div class="eyebrow">PARENT CONTROLS</div><h2>使用时间与远程开关</h2></div></div>
+          <div class="notice"><strong>以玩具确认状态为准</strong><p>使用规则经家庭 Wi-Fi 发送到玩具。显示“玩具已确认”后才按该规则执行；电脑暂时关闭时，玩具继续执行已确认的规则。</p></div>
+          <div class="two-col settings-grid">
+            <form id="settings-form" class="panel settings-form">
+              <h3>每日使用规则</h3><p class="subtext">玩具收到并确认后在本机执行，断网时仍保留已确认的规则。</p>
+              <div class="form-row"><label for="daily-minutes">每天最多使用</label><div class="unit-input"><input id="daily-minutes" type="number" min="1" max="240" required><span>分钟</span></div></div>
+              <div class="form-row"><label for="daily-sessions">每天最多开启</label><div class="unit-input"><input id="daily-sessions" type="number" min="1" max="30" required><span>次会话</span></div></div>
+              <div class="form-row"><label>安静时段</label><div class="time-range"><input id="quiet-start" type="time" required><span>至</span><input id="quiet-end" type="time" required></div></div>
+              <div class="form-row"><label for="retention" title="离线补传的记录，从首次同步到电脑起保留；聊天时间不变">同步后保留</label><div class="unit-input"><input id="retention" type="number" min="1" max="30" required><span>天</span></div></div>
+              <div class="form-row switch-row"><div><label for="save-transcript">网页保留逐字文字</label><small>关闭后网页删除已保存的文字；玩具会短期缓存待同步记录</small></div><input id="save-transcript" type="checkbox"></div>
+              <div class="form-row switch-row"><div><label for="paused">暂停新会话</label><small>玩具确认暂停后，会等当前回答结束再停止收音</small></div><input id="paused" type="checkbox"></div>
+              <button class="primary save" type="submit">发送使用规则</button><p id="settings-message" class="form-message" role="status"></p>
+            </form>
+            <section class="panel queue-panel"><h3>远程指令状态</h3><p class="subtext">指令有有效期；请查看每条指令是否得到玩具确认。</p><div id="commands" class="commands"></div><div class="state-key"><span>本地排队</span><span>发送中，待确认</span><span>玩具已确认</span></div></section>
+          </div>
+        </section>
+      </div>
+    </main>
+    <footer>小胖家长查看 · 家庭 Wi-Fi 同步 · 无外网访问</footer>
+    <dialog id="attention-dialog" aria-labelledby="attention-heading">
+      <div class="panel-head"><h2 id="attention-heading">需留意的记录</h2><button id="attention-close" class="small-button">关闭</button></div>
+      <p class="subtext">包括异常和需要确认的结束记录，同一次问题可能产生多条记录。</p>
+      <div id="attention-list"></div>
+    </dialog>
+  </div>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "sp001-ai-companion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node parent-console/server.mjs",
+    "test": "node --test test/*.test.mjs parent-console/test/*.test.mjs",
+    "check:privacy": "node scripts/check-public.mjs",
+    "test:java": "node scripts/test-java.mjs",
+    "voice:demo": "node src/voice-demo.mjs"
+  }
+}

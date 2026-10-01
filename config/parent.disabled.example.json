@@ -1,0 +1,9 @@
+{
+  "enabled": false,
+  "pairingConsent": false,
+  "toyHost": "",
+  "toyCertificateFile": "toy-parent.der",
+  "deviceId": "",
+  "deviceKey": "",
+  "parentCode": ""
+}

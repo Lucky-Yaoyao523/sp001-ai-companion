@@ -1,0 +1,15 @@
+{
+  "enabled": false,
+  "recordingConsent": false,
+  "cloudConsent": false,
+  "mode": "minimax",
+  "region": "global",
+  "chatModel": "MiniMax-M3",
+  "apiKey": "",
+  "streamingAsr": {
+    "enabled": false,
+    "apiKey": "",
+    "maxConnectionsPerSession": 61,
+    "usage": "owner"
+  }
+}
