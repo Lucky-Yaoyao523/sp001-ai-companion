@@ -1,111 +1,118 @@
 # SP001 AI Companion
 
-**A discontinued Spider-Man toy, its original hardware, and new conversations in Chinese.**
+**New conversations in Chinese. The same Spider-Man hardware.**
 
-[中文](README.md) · [Get started](#get-started) · [Integration guide](docs/integration.md)
+[中文](README.md) · [Capabilities](#what-it-supports) · [Get started](#get-started) · [Integration guide](docs/integration.md)
 
-The microphone, speaker, and expressive eyes are already there. This project explores what that hardware can do with current speech and language services: hear a new question, tell a new story, continue a conversation, and retrieve preferences that were actually saved.
+The Sphero Spider-Man SP001 already has a microphone, a speaker, and expressive eyes. After its original app and services retired, setting up and continuing to use that hardware became difficult. This project keeps the original board and enclosure, connecting Chinese speech recognition, a language model, and speech synthesis so new replies come through the original speaker.
 
-The prototype runs on the original Sphero Spider-Man SP001 board. This repository shares our authored code, offline regression cases, and integration experience.
+Once it could speak, conversation exposed the next set of problems. A new question could arrive while a story was playing. A complete model reply could lose its ending inside the client. A promise to remember something needed a successful save behind it. Capture, dialogue, playback, and memory had to work together.
 
-**This is a developer source edition. The local parent console can run on a computer; the toy components require your own device integration. No ready-to-flash APK or firmware is included.**
+The prototype runs on the original device. This repository shares our authored source, regression cases, and integration experience as a **developer source edition**. You can explore the parent console on a computer now; using the toy components requires your own hardware integration and service accounts.
 
-## Why keep working on an old toy?
+## Start with the hardware already there
 
-An interactive toy depends on its hardware and the software ecosystem around it. After SP001 was discontinued, the retirement of its original app and services made setup and continued use difficult. Community projects such as [Second Life Toys](https://github.com/second-life-toys/second-life-toys) describe this problem and share recovery work.
+The retirement of SP001's original app and services is a problem other owners have encountered. Community efforts such as [Second Life Toys](https://github.com/second-life-toys/second-life-toys) document it and share recovery work.
 
-Our contribution explores Chinese AI interaction on the original hardware. The board, microphone, speaker, eyes, and enclosure stay in use. New speech and model services connect over Wi-Fi, bringing new conversations through the existing physical toy.
-
-Talking to something beside you creates concrete requirements. You can ask a follow-up, change a story, or interrupt halfway through an answer. The entire speech pipeline has to handle that behavior.
-
-Those requirements shaped the project, one problem at a time.
-
-## First: get a complete conversation through the hardware
+This project explores Chinese AI interaction through the original board, microphone, speaker, eyes, and enclosure. The microphone captures a question; speech recognition turns it into text; a model answers or requests a tool; speech synthesis brings the response back through the original speaker. Eye expressions and limited device controls provide another way to respond.
 
 ```text
-Original microphone → lightweight client → Wi-Fi → ASR and cloud dialogue
-                                                       ↓
-Original speaker ← streaming playback ← speech synthesis and the reply
+Original microphone → device client → Wi-Fi → ASR and cloud dialogue
+                                                   ↓
+Original speaker ← streaming playback ← speech synthesis and reply
 ```
 
-The old device handles capture, playback, session state, and bounded hardware actions. Cloud services handle transcription, language understanding, answer generation, and requested lookups. The configured prototype can chat over Wi-Fi without a computer or phone staying connected. The computer-based parent console is optional; cloud conversation still requires a network connection and the user's own service accounts.
+The configured prototype can have a conversation over Wi-Fi without a computer or phone remaining connected. The optional parent console runs separately. Cloud recognition and answer generation still require network access.
 
-The prototype supports Chinese multi-turn conversation, stories, explanations, and translation. Current adapters include Qwen recognition and MiniMax dialogue and speech synthesis. Their implementations are included in the source.
+Current adapters include Qwen recognition and MiniMax dialogue and speech synthesis. The prototype supports Chinese follow-ups, stories, explanations, and translation. Weather and search tools let the model request information and continue from the returned results; weather queries require an explicit city.
 
-Getting sound through the system was the beginning of the work.
+Getting a reply to come out of the speaker was the first milestone.
 
-## Then: make the conversation continue
+## Sound is the beginning of a conversation
 
-People pause, add detail, correct themselves, and change their minds. The toy's own speaker also feeds sound back into its microphone. A simple sequence of API requests can turn these conditions into missed speech, overlapping turns, long waits, or an old answer still playing when a new question arrives.
+People pause halfway through a thought, add a detail, correct themselves, or ask another question before an answer finishes. Meanwhile, the toy's speaker feeds sound back toward its own microphone.
 
-The project includes capture windows, echo handling, interruption confirmation, playback cancellation, and session lifecycle management. The model interprets the full request and selects tools. The device executes a limited action and returns the actual result.
+The difficult part is deciding when to listen, when to speak, and when to stop. If a new question arrives during a story, the client needs to confirm the interruption, stop the old playback, and capture the new request. Late results from the cancelled turn also need to respect that cancellation.
 
-Two practical requirements guide this boundary:
+The project includes mechanisms for those transitions. The model interprets the full request and selects tools; the device performs bounded actions and returns execution receipts. Tools cover volume queries and changes, eye expression, capture settings, and initiative controls.
 
-- A volume request needs a device action and a receipt. A spoken promise is not evidence that the setting changed.
-- Ending a conversation needs to end the listening session. A farewell spoken by a story character or a word being translated must preserve the user's actual request.
+A request to lower the volume needs a result from the device before the assistant can report success. Ending a conversation needs to end the listening session. A farewell spoken by a story character, or a word being translated, must preserve the meaning of the user's request.
 
-These requirements became formal tool calls, receipts, and cancellation handling. Prototype use has produced reports of improved interruption behavior; reliability across different acoustic conditions still needs more physical testing.
+Feedback from prototype use includes improvements in interruption handling. Reliability across rooms, distances, and voices still needs further testing.
 
-## The answer was generated. Why did the toy stop speaking?
+## Following the missing part of an answer
 
-One important investigation found that reply text was being lost in transit. Two defects were reproducible:
+One investigation began with shortened spoken answers. Following the text through the system revealed two reproducible client defects:
 
-1. After parsing a valid reply envelope, the client ignored additional ordinary text that followed it.
-2. After a tool round trip, the client returned at the first completed assistant message and missed later assistant messages.
+1. The parser accepted a valid reply envelope, then discarded ordinary reply text that followed it.
+2. After a tool round trip, the dialogue engine returned at the first completed assistant message, leaving later assistant messages out of the reply.
 
-Both could sound like a suddenly shortened answer. Diagnosing them required comparing what the provider produced, what the client retained, and what playback received.
+Both defects could make a complete response sound unfinished. Finding them required comparing three stages: the provider's output, the text retained by the client, and the text handed to playback.
 
-The premature returns were fixed, and those failure shapes are preserved in [NativeReplyCompletenessTest](core-patch/test/NativeReplyCompletenessTest.java). Two real-provider text-level integration cases also checked complete delivery. Their tool and playback ports were simulated, so that evidence establishes text delivery rather than physical speaker acceptance.
+The public regression uses a constructed aquarium introduction: an opening about two areas, followed by separate pools, a visitor path, and an entrance sequence. The old completion logic could deliver the opening and lose the later explanation. This is a test fixture, not a replay of a family conversation.
 
-The useful debugging method is to trace the reply from provider output through the client and playback state, locating the first point where text disappears. Cancellation, network interruption, and playback failures remain separate causes to investigate.
+We fixed the premature completion paths and preserved the failure shapes in [NativeReplyCompletenessTest](core-patch/test/NativeReplyCompletenessTest.java). Two integration cases using a real model provider also checked complete text delivery. Their tool and playback ports were simulated, so they establish delivery of the text, with physical speaker acceptance still separate.
 
-## Remember preferences, and make use visible
+That tracing method is useful beyond this toy: locate the first stage where content disappears. Cancellation, network interruptions, and playback errors each need their own evidence when an answer stops early.
 
-As a conversation continues, another question appears: which information survives the current turn, the next session, or a restart?
+## Remember what was actually saved
 
-The project separates recent conversational context from persistent local memory. Stable preferences can be stored in application-private storage. An explicit save request requires a save receipt before the assistant has grounds to say it was persisted. The memory components also provide viewing, deletion, and profile separation. The storage and recall mechanisms are available for reuse; accurate long-term recall still needs continued validation.
+Recent conversational context and persistent preferences have different jobs. Keeping up with the previous question does not establish that a preference will survive the next session or a restart.
 
-The parent console adds visibility into sessions, duration, complete or partial answers, tool results, and errors. Transcript retention is off by default and must be selected explicitly.
+The memory components store stable preferences in application-private storage, with profile separation, inspection, and deletion. An explicit save request produces a receipt; the assistant needs a successful result before saying the information was saved.
 
-When the computer backend is temporarily unavailable, the toy can retain pending events and catch up when the backend returns. Backend downtime and catch-up were physically tested on the prototype. Authentication, certificate validation, durable cursors, and deduplication support this path. Moving a backend requires transferring its records and cursor together; one durable backend owns synchronization for a toy.
+This makes persistence visible and testable. The storage and recall mechanisms are available; reliable long-term recall remains an open validation task.
 
-**Backend downtime catch-up has test evidence. A toy without network access cannot use cloud services to generate new replies.**
+These newly written requests illustrate possible integration tests; **they are synthetic examples, not family transcripts or recordings of tests**:
 
-## What the current components support
+- Tell a story set in a lunar greenhouse, then change its direction with a follow-up.
+- Lower the volume by one step and report the resulting setting.
+- Save a preference for paper folding, then check the save receipt.
+- Look up tomorrow's weather for an explicitly named city.
+- End the current conversation and stop listening.
 
-These are existing mechanisms and prototype capabilities. Using the source requires your own hardware adaptation and service credentials.
+## Keep a journal that can catch up
 
-| Capability | What it provides | Evidence and remaining work |
-|---|---|---|
-| Chinese conversation | Follow-ups, stories, explanations, translation | Runs on the prototype; factual accuracy, names, and conversational quality need improvement |
-| Streaming replies | Incremental reception and playback, continued text, multiple post-tool messages | Two reply-loss defects fixed with regression coverage; cancellation and transport failures remain separate |
-| Interruption and session control | Confirmed interruption, old-playback cancellation, new capture, session ending | Improvement reported in prototype use; broad acoustic acceptance is incomplete |
-| Hardware tools and expression | Volume query/change, eye expression, capture settings, initiative controls | Bounded actions and actual receipt paths; depends on the original runtime and physical checks |
-| Weather and search | Model-selected lookups and result-based answers | Interfaces included; weather requires an explicit city, and network requests can fail |
-| Local preference memory | Save, retrieve, inspect, delete, and separate profiles | Private application storage and offline regression; reliable long-term recall needs more evidence |
-| Parent console | Usage, partial replies, errors, transcript retention controls | Runs locally, starts empty, offers explicit synthetic demo loading |
-| Journal synchronization | Authenticated retrieval, durable storage, deduplication, catch-up | Prototype backend downtime tested; public edition requires explicit own-device pairing configuration |
-| Usage limits | Daily time/session limits, quiet hours, pause/resume, command confirmation state | Software logic and expired-command rejection tested; complete physical acceptance of effective rules is still pending |
+The optional parent console shows sessions, duration, complete or partial replies, tool results, and errors. Transcript retention is off by default and can be enabled explicitly.
 
-Example integration requests could include a story set in a lunar greenhouse, a volume query after changing one step, saving a preference for paper folding, an explicit city/date weather query, and ending the current chat. These are newly authored illustrations, not family transcripts or verbatim recordings of tests.
+The toy can keep pending events while the computer backend is unavailable, then synchronize them when it returns. We tested that path on the prototype: the computer service stopped, the toy continued a cloud conversation over Wi-Fi, and the restored service caught up without duplicate records.
 
-## What you can take from this repository
+Authenticated retrieval, certificate validation, durable cursors, and deduplication support synchronization. A migration needs to transfer the records and cursor together, with one durable backend owning synchronization for each toy.
 
-The source provides a reference across speech transport, model tools, device receipts, memory, and usage records. Regression cases preserve previously encountered failure shapes, so later changes can be checked for lost text, wrong tool execution, and confused cancellation state.
+This concerns the availability of the parent backend. A toy that loses network access cannot generate new replies through cloud services.
 
-| Area | Start reading |
+The usage controls include daily time and session limits, quiet hours, pause/resume, and command confirmation state. Software logic and expired-command rejection have been tested; enforcing active rules still needs complete testing on the device.
+
+## What it supports
+
+These are components and capabilities of the configured prototype. Running them on a toy requires your own hardware integration.
+
+| What you want to do | What the project provides |
 |---|---|
-| Requests and tool definitions | [NativeDialogueProtocol](core-patch/src/org/sp001/core/NativeDialogueProtocol.java) |
-| Reply reception and completeness | [NativeDialogueEngine](core-patch/src/org/sp001/core/NativeDialogueEngine.java), [ReplyEnvelopeStream](core-patch/src/org/sp001/core/ReplyEnvelopeStream.java) |
+| Continue a conversation in Chinese | Multi-turn context, follow-up questions, stories, explanations, and translation |
+| Speak while a reply arrives | Incremental reception and segmented playback, including continued text and multiple messages after tools |
+| Interrupt or end a conversation | Interruption confirmation, playback cancellation, new capture, and session lifecycle management |
+| Act on the device | Volume queries and changes; adapters for eye expressions, capture settings, and initiative controls; actual execution results |
+| Look up weather or information | Model-selected weather and search tools; weather requires an explicit city |
+| Save a preference | Local storage, retrieval, inspection, deletion, profile separation, and save receipts |
+| See how the toy was used | A local parent console with sessions, duration, partial replies, tool results, errors, and transcript retention controls |
+| Catch up after backend downtime | Authenticated synchronization, durable events and cursors, and deduplication |
+| Set usage rules | Time and session limits, quiet hours, pause/resume, and confirmation status; complete device testing of active rules is pending |
+
+## What developers can build on
+
+The source connects speech transport, model tools, device execution, memory, and usage records. Regression cases give later changes concrete failures to check.
+
+| Area | Start here |
+|---|---|
+| Requests and tools | [NativeDialogueProtocol](core-patch/src/org/sp001/core/NativeDialogueProtocol.java) |
+| Complete reply reception | [NativeDialogueEngine](core-patch/src/org/sp001/core/NativeDialogueEngine.java), [ReplyEnvelopeStream](core-patch/src/org/sp001/core/ReplyEnvelopeStream.java) |
 | Capture, playback, interruption | [OwnerNativeConversation](core-patch/src/org/sp001/core/OwnerNativeConversation.java), [OwnerDuplexCapture](core-patch/src/org/sp001/core/OwnerDuplexCapture.java) |
 | Persistent preferences | [CompanionMemory](core-patch/src/org/sp001/core/CompanionMemory.java), [OwnerCompanionMemory](core-patch/src/org/sp001/core/OwnerCompanionMemory.java) |
-| Durable events and catch-up | [ParentJournalState](core-patch/src/org/sp001/core/ParentJournalState.java), [toy-pull.mjs](parent-console/toy-pull.mjs) |
-| Local parent UI | [parent-console/](parent-console/) |
+| Events and catch-up | [ParentJournalState](core-patch/src/org/sp001/core/ParentJournalState.java), [toy-pull.mjs](parent-console/toy-pull.mjs) |
+| Local parent interface | [parent-console/](parent-console/) |
 
-The initial source release compiled **95 production Java source files** and passed **57 Node checks and nine Java offline regression groups**. These results cover compilation and software behavior. Installation, microphone capture, audible playback, and multi-day physical use have separate acceptance requirements.
-
-The parent console and offline mock can be explored on a computer first. Android components use adapters for the original SP001 runtime. Individual components can also be studied when building an adapter for other hardware.
+Android components use adapters for the original runtime. Developers working with other hardware can study the individual components and implement their own adapters.
 
 ## Get started
 
@@ -117,9 +124,9 @@ cd sp001-ai-companion
 npm start
 ```
 
-Open the local URL printed in the terminal, normally `http://127.0.0.1:8787/`, and enter the fresh access code. The database starts empty. Clearly labelled synthetic demo records can be loaded explicitly.
+Open the printed local URL, normally `http://127.0.0.1:8787/`, and enter the fresh access code. The database starts empty; clearly labelled synthetic demo records can be loaded explicitly.
 
-Windows can use `START-PARENT.cmd`; Mac/Linux can run `sh START-PARENT.command`. Node.js must be installed separately.
+Windows users can run `START-PARENT.cmd`; Mac/Linux users can run `sh START-PARENT.command`. Node.js is installed separately.
 
 ```sh
 npm run voice:demo
@@ -127,24 +134,30 @@ npm test
 npm run check:privacy
 ```
 
-Default entry points do not connect to a toy, call paid models, or use a microphone. See [development](docs/development.md) for Java compilation and [integration](docs/integration.md) for device adaptation, configuration, and synchronization ownership.
+Default entry points use no toy, microphone, or paid model. Read [development](docs/development.md) for Java compilation and [integration](docs/integration.md) for hardware adaptation, configuration, and synchronization ownership.
 
-## Work still ahead
+## Where the project stands
 
-Factual accuracy, name understanding, natural conversation, partial-answer cancellation diagnosis, and long-session behavior need improvement. Hardware, room, distance, and network variations require more real-world evidence.
+The prototype runs on real hardware, and journal catch-up after parent backend downtime has been tested. The two reply-loss defects have reproducible failures, fixes, regression cases, and real-provider checks of complete text delivery.
 
-A useful contribution can be a sanitized reproducible failure, a regression case, a hardware adapter, or clearer setup documentation. Please follow [CONTRIBUTING.md](CONTRIBUTING.md) before sharing diagnostics.
+The initial source release compiled **95 production Java files** and passed **57 Node checks and nine Java offline regression groups**. These cover compilation and software behavior.
 
-The aim is to keep discontinued hardware useful and give people building speech companions concrete experience to build on.
+Factual accuracy, name understanding, conversational naturalness, cancellation diagnosis, and long-session behavior need improvement. The prototype's selected successes do not establish reliability across every device or acoustic environment.
 
-## Privacy, distribution, and community
+Audible completion after the reply-loss fixes, interruption reliability, accurate long-term recall, and enforcement of active parent rules still need their own physical or extended-use testing. Integrating the public source with your device is also a separate task.
 
-Family identities, ages, locations, conversations, memories, Wi-Fi details, device identities, credentials, private certificates, and recordings are excluded. Examples are disabled with empty credentials. There is no household weather default. BLE remote provisioning and capture-start entry points are disabled in the public copy; private prototype data and original project history were not exported.
+A useful contribution can start with a sanitized reproducible failure, a regression case, an adapter, or clearer instructions. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Enabled cloud speech sends audio and text to the user's selected providers. `store:false` is not a guarantee of provider non-retention. Parent transcript storage is off by default; no automatic external summary service is wired in. See [privacy](PRIVACY.md) and [security](SECURITY.md).
+## Privacy and distribution
 
-No vendor APK, extracted assets, character audio, signing private keys, firmware recovery tools, or debug-access instructions are distributed. Use your own lawful device development environment.
+The public copy excludes private identities, conversations, memories, recordings, Wi-Fi details, credentials, and private certificates. Configuration examples are disabled with empty credentials, and there is no household weather default. BLE remote provisioning and capture-start entry points are disabled. Private prototype data and original project history were not exported.
 
-Community references include [Second Life Toys](https://github.com/second-life-toys/second-life-toys), [SpheroRevived](https://github.com/Ric-614/SpheroRevived), and [Sphero-Spiderman](https://github.com/helenclarko/Sphero-Spiderman). Their application packages, proprietary code, and assets are not copied into this repository.
+Enabled cloud speech sends audio and text to the providers you select; `store:false` does not guarantee provider non-retention. Parent transcripts are off by default, and no automatic external summary service is wired in. See [privacy](PRIVACY.md) and [security](SECURITY.md).
 
-Our authored code and documentation use the [MIT License](LICENSE). Dependencies are installed separately; see [third-party notices](THIRD_PARTY_NOTICES.md). This independent community project is not affiliated with or endorsed by Sphero, Marvel, or Disney. Trademarks identify the compatible device.
+There is no bundled APK, firmware, vendor asset, character audio, signing private key, recovery tool, or debug-access guide. Use your own lawful device development environment.
+
+## Community and license
+
+Community references include [Second Life Toys](https://github.com/second-life-toys/second-life-toys), [SpheroRevived](https://github.com/Ric-614/SpheroRevived), and [Sphero-Spiderman](https://github.com/helenclarko/Sphero-Spiderman); their proprietary packages and assets are not included. Authored code and documentation use the [MIT License](LICENSE), with dependencies installed separately under [their licenses](THIRD_PARTY_NOTICES.md). This independent project has no affiliation with or endorsement from Sphero, Marvel, or Disney. Trademarks identify compatible hardware.
+
+The aim is to keep useful hardware in use, and share the engineering work that lets its next conversation happen.
