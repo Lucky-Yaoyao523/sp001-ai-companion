@@ -1,5 +1,19 @@
 # SP001 AI Companion · 小胖开源伙伴
 
+## English introduction
+
+**New conversations in Chinese. The same Spider-Man hardware.**
+
+This project keeps the original SP001 board, microphone, speaker, eyes, and enclosure, connecting Chinese speech recognition, a language model, and speech synthesis. This developer source edition shares the project's story, conversation and memory components, regression cases, and an optional parent console you can explore on a computer.
+
+### [Read the full project story in English →](README.en.md)
+
+The English introduction covers why the project began, the problems it tackles, what it supports, how to get started, and its current limitations.
+
+---
+
+## 中文介绍
+
 **给停产的蜘蛛侠，接上新的中文对话。**
 
 [English](README.en.md) · [能做什么](#它现在能做什么) · [开始使用](#开始使用) · [开发与集成](docs/integration.md)
